@@ -153,6 +153,17 @@
   .chk input{margin:0;accent-color:#22d3ee;}
   .mdel{color:#fb7185;cursor:pointer;font-weight:800;margin-left:3px;}
   .meta2{font-size:12px;color:var(--sub);}
+  /* ===== 可点击元素 ===== */
+  .ck{cursor:pointer;}
+  .ck .l,.ck .kl,.ck .bl{transition:color .15s;}
+  .card.ck:hover,.kpi.ck:hover{border-color:var(--line2);box-shadow:0 0 24px rgba(34,211,238,.30);}
+  .card.ck:hover .l,.kpi.ck:hover .kl{color:#9fd8f5;}
+  .bar.ck{padding:4px 6px;border-radius:6px;}
+  .bar.ck:hover{background:rgba(34,211,238,.08);}
+  .bar.ck:hover .bl{color:#eafaff;}
+  .chip.ck:hover{border-color:var(--line2);color:#eafaff;box-shadow:0 0 12px rgba(34,211,238,.35);}
+  .lnk{color:#8beaff;cursor:pointer;border-bottom:1px dashed rgba(34,211,238,.45);}
+  .lnk:hover{color:#eafaff;border-bottom-color:#22d3ee;text-shadow:0 0 10px rgba(34,211,238,.6);}
 
   /* ===== 左侧导航 ===== */
   body{display:flex;align-items:flex-start;min-height:100vh;}
@@ -265,6 +276,7 @@
   <div class="cards" id="cards"></div>
   <div class="note" id="note"></div>
   <div class="toolbar">
+    <div class="f" data-mod="supplier"><label>地区</label><select id="fRegion"></select></div>
     <div class="f" data-mod="supplier region"><label>品类</label><select id="fCat"></select></div>
     <div class="f" data-mod="supplier region"><label>打标等级</label><select id="fLevel"></select></div>
     <div class="f" data-mod="store"><label>分层</label><select id="fTier"></select></div>
@@ -291,13 +303,13 @@ const $ = (s)=>document.querySelector(s);
 const meta = DATA.summary;
 $("#meta").textContent = `数据区间: ${meta.window} ｜ 生成时间: ${meta.generatedAt} ｜ 来源: 马帮ERP(只读)`;
 $("#cards").innerHTML = [
-  ["店铺总数", meta.storeCount],
-  ["有出单店铺", meta.storesWithOrders],
-  ["出单订单数", meta.totalOrders],
-  ["出单SKU数", meta.totalSku],
-  ["涉及供应商", meta.distinctSuppliers],
-  ["未匹配店铺", meta.unmatchedShops],
-].map(([l,n])=>`<div class="card"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+  ["店铺总数", meta.storeCount, "store"],
+  ["有出单店铺", meta.storesWithOrders, "store"],
+  ["出单订单数", meta.totalOrders, "store"],
+  ["出单SKU数", meta.totalSku, "store"],
+  ["涉及供应商", meta.distinctSuppliers, "supplier"],
+  ["未匹配店铺", meta.unmatchedShops, "store"],
+].map(([l,n,v])=>`<div class="card ck" data-act="go" data-val="${v}"><div class="n">${n}</div><div class="l">${l} ›</div></div>`).join("");
 
 $("#note").innerHTML = `<b>供应商打标系统</b>：以供应商维度评估能力。每家供应商可点击「✏️ 打标」维护 <b>等级 / 品类 / 地区 / 联系人 / 优势标签 / 备注</b>，数据保存在本机浏览器（刷新不丢失），支持导出/导入 JSON 迁移。数据口径：「出单SKU」= 区间内马帮订单中出现的库存SKU；「供应商」= 该SKU在马帮的 provider 字段。`
   + (meta.unmatchedShops>0 ? ` 另有 <b>${meta.unmatchedShops}</b> 个马帮店铺在订单中出现但未匹配到本清单(店铺视图底部)。` : ``);
@@ -305,7 +317,7 @@ $("#note").innerHTML = `<b>供应商打标系统</b>：以供应商维度评估�
 let view = "home";
 const stores = DATA.stores;
 const fTier=$("#fTier"), fGroup=$("#fGroup"), fSales=$("#fSales"), fSearch=$("#fSearch"),
-      fCat=$("#fCat"), fLevel=$("#fLevel");
+      fCat=$("#fCat"), fLevel=$("#fLevel"), fRegion=$("#fRegion");
 
 function uniq(arr){return [...new Set(arr)].sort();}
 function fillSelect(sel,vals,allLabel){
@@ -349,13 +361,15 @@ function refreshSidebar(){
 $("#sbFoot").addEventListener("click",e=>{
   const el=e.target.closest("[data-cat]");
   if(!el)return;
+  clearFilters();
   fCat.value=el.dataset.cat;
   gotoView("supplier");
+  window.scrollTo({top:0,behavior:"smooth"});
 });
-[fTier,fGroup,fSales,fCat,fLevel].forEach(s=>s.addEventListener("change",render));
+[fTier,fGroup,fSales,fCat,fLevel,fRegion].forEach(s=>s.addEventListener("change",render));
 fSearch.addEventListener("input",render);
 $("#reset").addEventListener("click",()=>{
-  fTier.value="";fGroup.value="";fSales.value="";fCat.value="";fLevel.value="";fSearch.value="";render();
+  fTier.value="";fGroup.value="";fSales.value="";fCat.value="";fLevel.value="";fRegion.value="";fSearch.value="";render();
 });
 
 function tierClass(t){ if(t==="头部")return "t1"; if(t==="腰部")return "t2"; return "t3"; }
@@ -408,8 +422,18 @@ function fillCatFilter(){
   fCat.innerHTML=`<option value="">全部品类</option>`+[...used].sort().map(c=>`<option>${c}</option>`).join("");
   fCat.value=cur;
 }
-fLevel.innerHTML=`<option value="">全部等级</option>`+LV.slice(1).map(([v,l])=>`<option value="${v}">${l}</option>`).join("");
+fLevel.innerHTML=`<option value="">全部等级</option>`+LV.slice(1).map(([v,l])=>`<option value="${v}">${l}</option>`).join("")
+  + `<option value="__rated__">已评级（A–D）</option><option value="__unrated__">未评级</option>`;
+function fillRegionFilter(){
+  const used=new Set();
+  Object.values(META).forEach(m=>{ if(m && m.region) used.add(m.region); });
+  used.add("未标注地区");
+  const cur=fRegion.value;
+  fRegion.innerHTML=`<option value="">全部地区</option>`+[...used].sort().map(r=>`<option>${r}</option>`).join("");
+  fRegion.value=cur;
+}
 fillCatFilter();
+fillRegionFilter();
 
 function render(){
   refreshSidebar();
@@ -421,13 +445,16 @@ function render(){
 }
 
 const escAttr = s => String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
-function barList(items){
+function barList(items, act){
   if(!items.length) return `<div class="empty">暂无数据</div>`;
   const max = Math.max(1, ...items.map(i=>i[1]));
-  return `<div class="bars">` + items.map(([k,v])=>
-      `<div class="bar"><div class="bl" title="${escAttr(k)}">${k}</div>
+  return `<div class="bars">` + items.map(([k,v,av])=>{
+    const attr = act ? ` class="bar ck" data-act="${act}" data-val="${escAttr(av===undefined?k:av)}" title="点击查看对应供应商"`
+                     : ` class="bar"`;
+    return `<div${attr}><div class="bl" title="${escAttr(k)}">${k}</div>
         <div class="bt"><div class="bf" style="width:${(v/max*100).toFixed(1)}%"></div></div>
-        <div class="bv">${v}</div></div>`).join("") + `</div>`;
+        <div class="bv">${v}</div></div>`;
+  }).join("") + `</div>`;
 }
 
 // ================= 首页总览 =================
@@ -450,29 +477,30 @@ function renderHome(){
   const topReps = Object.entries(reps).sort((a,b)=>b[1]-a[1]).slice(0,12);
   const topProvs = Object.entries(provs).sort((a,b)=>b[1]-a[1]).slice(0,12);
   const catList = Object.entries(cats).sort((a,b)=>b[1]-a[1]);
-  const lvItems = [["A · 优质",lv.A],["B · 稳定",lv.B],["C · 一般",lv.C],["D · 待淘汰",lv.D],["未评级",lv[""]]];
+  const lvItems = [["A · 优质",lv.A,"A"],["B · 稳定",lv.B,"B"],["C · 一般",lv.C,"C"],["D · 待淘汰",lv.D,"D"],["未评级",lv[""],"__unrated__"]];
   const tierCnt={}; stores.forEach(s=>{ const k=s.tier||"其他"; tierCnt[k]=(tierCnt[k]||0)+1; });
   const tierItems = Object.entries(tierCnt).sort((a,b)=>b[1]-a[1]);
   const pct = n => total ? (n/total*100).toFixed(1)+"%" : "-";
 
   $("#result").innerHTML = `
   <div class="kpis">
-    <div class="kpi"><div class="kv">${total}</div><div class="kl">供应商总数</div></div>
-    <div class="kpi"><div class="kv">${Object.keys(reps).length}</div><div class="kl">已标注地区数</div></div>
-    <div class="kpi"><div class="kv">${catList.length}</div><div class="kl">覆盖品类数</div></div>
-    <div class="kpi"><div class="ks">${pct(rated)}</div><div class="kv">${rated}</div><div class="kl">已完成评级</div></div>
-    <div class="kpi"><div class="ks">${pct(tagged)}</div><div class="kv">${tagged}</div><div class="kl">已打标供应商</div></div>
+    <div class="kpi ck" data-act="go" data-val="supplier"><div class="kv">${total}</div><div class="kl">供应商总数 ›</div></div>
+    <div class="kpi ck" data-act="go" data-val="region"><div class="kv">${Object.keys(reps).length}</div><div class="kl">已标注地区数 ›</div></div>
+    <div class="kpi ck" data-act="go" data-val="supplier"><div class="kv">${catList.length}</div><div class="kl">覆盖品类数 ›</div></div>
+    <div class="kpi ck" data-act="level" data-val="__rated__"><div class="ks">${pct(rated)}</div><div class="kv">${rated}</div><div class="kl">已完成评级 ›</div></div>
+    <div class="kpi ck" data-act="go" data-val="supplier"><div class="ks">${pct(tagged)}</div><div class="kv">${tagged}</div><div class="kl">已打标供应商 ›</div></div>
   </div>
+  <div class="meta2" style="margin:-4px 0 12px;">提示：点击下方任意卡片 / 条形 / 标签，可直接跳到对应的供应商清单。</div>
   <div class="grid2">
-    <div class="panel"><h3>地区分布 TOP 12（按商家数）</h3>${barList(topReps)}</div>
-    <div class="panel"><h3>品类分布（供应商数）</h3>${barList(catList)}</div>
+    <div class="panel"><h3>地区分布 TOP 12（按商家数）</h3>${barList(topReps,"region")}</div>
+    <div class="panel"><h3>品类分布（供应商数）</h3>${barList(catList,"cat")}</div>
   </div>
   <div class="grid2" style="margin-top:16px;">
-    <div class="panel"><h3>打标等级分布</h3>${barList(lvItems)}</div>
-    <div class="panel"><h3>省份分布 TOP 12</h3>${barList(topProvs)}</div>
+    <div class="panel"><h3>打标等级分布</h3>${barList(lvItems,"level")}</div>
+    <div class="panel"><h3>省份分布 TOP 12</h3>${barList(topProvs,"prov")}</div>
   </div>
   <div class="grid2" style="margin-top:16px;">
-    <div class="panel"><h3>店铺分层</h3>${barList(tierItems)}</div>
+    <div class="panel"><h3>店铺分层</h3>${barList(tierItems,"tier")}</div>
     <div class="panel"><h3>数据缺口（建议优先补齐）</h3>
       <div class="gaps">
         <div class="gap"><b>${noRegion}</b> 家供应商未标注<b>地区</b></div>
@@ -493,7 +521,12 @@ function renderRegion(kw){
     const reg = (m.region||"").trim() || "未标注地区";
     if(kw && !reg.toLowerCase().includes(kw) && !sup.toLowerCase().includes(kw)) continue;
     if(fCat.value && !(m.cats||[]).includes(fCat.value)) continue;
-    if(fLevel.value && (m.tier||"")!==fLevel.value) continue;
+    if(fLevel.value){
+      const t=m.tier||"";
+      if(fLevel.value==="__rated__"){ if(!t) continue; }
+      else if(fLevel.value==="__unrated__"){ if(t) continue; }
+      else if(t!==fLevel.value) continue;
+    }
     cnt++;
     const r = rep[reg] || (rep[reg]={region:reg, sups:[], cats:{}, lv:{A:0,B:0,C:0,D:0,"":0}, stores:new Set()});
     r.sups.push(sup);
@@ -513,13 +546,13 @@ function renderRegion(kw){
   rows.forEach((r,i)=>{
     const cats = Object.entries(r.cats).sort((a,b)=>b[1]-a[1]);
     const catHtml = cats.length
-      ? cats.map(([c,n])=>`<span class="chip">${c} <b style="color:#eafaff">${n}</b></span>`).join("")
+      ? cats.map(([c,n])=>`<span class="chip ck" data-act="rcat" data-val="${escAttr(c)}" data-reg="${escAttr(r.region)}" title="查看该地区该品类的供应商">${c} <b style="color:#eafaff">${n}</b></span>`).join("")
       : `<span class="zero">未标注</span>`;
     const lvHtml = ["A","B","C","D"].map(t=> r.lv[t] ? `<span class="lvl ${t}">${t} ${r.lv[t]}</span>` : "").join("")
       + (r.lv[""] ? `<span class="zero"> 未评 ${r.lv[""]}</span>` : "");
     const share = cnt ? (r.sups.length/cnt*100) : 0;
     html += `<tr>
-      <td><b>${r.region}</b></td>
+      <td><b class="lnk" data-act="region" data-val="${escAttr(r.region)}" title="查看该地区全部供应商">${r.region}</b></td>
       <td class="num">${r.sups.length}</td>
       <td><div class="bar" style="grid-template-columns:1fr 44px;">
           <div class="bt"><div class="bf" style="width:${share.toFixed(1)}%"></div></div>
@@ -533,7 +566,7 @@ function renderRegion(kw){
         </div></td>
     </tr>`;
   });
-  html += `</tbody></table><div class="meta2" style="margin-top:9px;">提示：点供应商标签可直接打标（维护品类 / 地区 / 等级）。</div>`;
+  html += `</tbody></table><div class="meta2" style="margin-top:9px;">提示：点<b>地区名</b>或<b>品类标签</b>可跳到筛选好的供应商清单；点供应商标签可直接打标。</div>`;
   $("#result").innerHTML = html;
 }
 function toggleRegion(i){
@@ -586,8 +619,11 @@ let lastEntries=[];
 function renderSupplier(kw){
   let entries = Object.entries(DATA.supplierToStores).map(([sup,sts])=>({sup,sts}));
   if(kw) entries = entries.filter(e=> e.sup.toLowerCase().includes(kw) || e.sts.join(" ").toLowerCase().includes(kw));
+  if(fRegion.value) entries = entries.filter(e=>(((META[e.sup]||{}).region||"").trim()||"未标注地区")===fRegion.value);
   if(fCat.value) entries = entries.filter(e=>((META[e.sup]||{}).cats||[]).includes(fCat.value));
-  if(fLevel.value) entries = entries.filter(e=>((META[e.sup]||{}).tier||"")===fLevel.value);
+  if(fLevel.value==="__rated__") entries = entries.filter(e=>!!(META[e.sup]||{}).tier);
+  else if(fLevel.value==="__unrated__") entries = entries.filter(e=>!(META[e.sup]||{}).tier);
+  else if(fLevel.value) entries = entries.filter(e=>((META[e.sup]||{}).tier||"")===fLevel.value);
   entries.sort((a,b)=>
     lvlRank((META[a.sup]||{}).tier)-lvlRank((META[b.sup]||{}).tier) ||
     b.sts.length-a.sts.length || a.sup.localeCompare(b.sup,"zh"));
@@ -701,7 +737,26 @@ function saveSupplier(){
   saveAll(); closeModal(); render();
 }
 $("#mask").addEventListener("click",e=>{ if(e.target.id==="mask")closeModal(); });
-$("#result").addEventListener("click",e=>{
+const ACT_LABEL={store:"店铺清单",supplier:"供应商打标",region:"地区分布",home:"首页总览"};
+function clearFilters(){
+  fTier.value=""; fGroup.value=""; fSales.value="";
+  fCat.value=""; fLevel.value=""; fRegion.value=""; fSearch.value="";
+}
+function handleAct(act,val,reg){
+  clearFilters();
+  if(act==="go"){ gotoView(val); }
+  else if(act==="cat"){ fCat.value=val; gotoView("supplier"); }
+  else if(act==="rcat"){ fCat.value=val; fRegion.value=reg||""; gotoView("supplier"); }
+  else if(act==="region"){ fRegion.value=val; gotoView("supplier"); }
+  else if(act==="level"){ fLevel.value=val; gotoView("supplier"); }
+  else if(act==="prov"){ fSearch.value=val; gotoView("region"); }
+  else if(act==="tier"){ fTier.value=val; gotoView("store"); }
+  else return;
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+$(".wrap").addEventListener("click",e=>{
+  const ck=e.target.closest("[data-act]");
+  if(ck){ handleAct(ck.dataset.act, ck.dataset.val, ck.dataset.reg); return; }
   const el=e.target.closest("[data-tag]");
   if(el) openTag(el.dataset.tag);
 });
@@ -723,7 +778,7 @@ $("#impFile").addEventListener("change",e=>{
       const d=JSON.parse(r.result);
       if(d.meta) META={...META,...d.meta};
       if(Array.isArray(d.categories)) CATS=[...new Set([...CATS,...d.categories])];
-      saveAll(); fillCatFilter(); render(); alert("导入成功：打标数据已合并");
+      saveAll(); fillCatFilter(); fillRegionFilter(); render(); alert("导入成功：打标数据已合并");
     }catch(err){ alert("文件格式错误，请选择导出的 JSON 文件"); }
   };
   r.readAsText(f);
@@ -731,7 +786,7 @@ $("#impFile").addEventListener("change",e=>{
 // ================= 🔄 重新回填(按 SKU中文名/供应商名 的预判) =================
 $("#reseedBtn").addEventListener("click",()=>{
   const r=applySeed();
-  if(r.changed){ saveAll(); fillCatFilter(); render(); alert("已回填/刷新 "+r.n+" 家供应商的品类·地区（不会覆盖你手动维护过的）"); }
+  if(r.changed){ saveAll(); fillCatFilter(); fillRegionFilter(); render(); alert("已回填/刷新 "+r.n+" 家供应商的品类·地区（不会覆盖你手动维护过的）"); }
   else{ alert("没有需要回填的供应商（都已有品类/地区或已手动维护）"); }
 });
 
