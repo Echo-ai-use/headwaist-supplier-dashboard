@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>头腰部客户 · 出单SKU供应商看板</title>
+<title>供应商打标系统 · 头腰部客户出单SKU供应商</title>
 <style>
   :root{
     --bg:#f5f7fa; --card:#ffffff; --ink:#1f2937; --sub:#6b7280;
@@ -49,11 +49,35 @@
   .note{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#92400e;margin-bottom:18px;}
   .badge{display:inline-block;background:#eef2ff;color:#3730a3;border-radius:6px;padding:1px 7px;font-size:11.5px;margin-left:6px;}
   .empty{text-align:center;color:var(--sub);padding:30px;}
+  .lvl{display:inline-block;padding:2px 9px;border-radius:6px;font-size:12px;font-weight:700;}
+  .lvl.A{background:#dcfce7;color:#15803d;}
+  .lvl.B{background:#dbeafe;color:#1d4ed8;}
+  .lvl.C{background:#fef3c7;color:#b45309;}
+  .lvl.D{background:#fee2e2;color:#b91c1c;}
+  .tag2{display:inline-block;background:#ecfdf5;color:#047857;border-radius:6px;padding:2px 8px;font-size:11.5px;margin:0 4px 2px 0;}
+  .ph b{color:#9ca3af;}
+  .mini{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;font-size:12.5px;cursor:pointer;color:var(--ink);}
+  .mini:hover{border-color:var(--brand);color:var(--brand);}
+  .btn2{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12.5px;cursor:pointer;color:var(--ink);}
+  .btn2:hover{border-color:var(--brand);color:var(--brand);}
+  .mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal{background:#fff;border-radius:14px;max-width:600px;width:100%;max-height:88vh;overflow:auto;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.18);}
+  .modal h3{margin:0 0 14px;font-size:15.5px;word-break:break-all;}
+  .mrow{display:flex;flex-direction:column;gap:4px;margin-bottom:11px;}
+  .mrow label{font-size:12px;color:var(--sub);}
+  .mrow input[type=text],.mrow select,.mrow textarea{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;}
+  .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .chk{display:flex;flex-wrap:wrap;gap:7px;}
+  .chk label{display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;border-radius:6px;padding:4px 9px;font-size:12.5px;cursor:pointer;}
+  .chk input{margin:0;}
+  .mdel{color:#dc2626;cursor:pointer;font-weight:700;margin-left:3px;}
+  .meta2{font-size:12px;color:var(--sub);}
 </style>
 </head>
 <body>
 <header>
-  <h1>头腰部客户 · 出单SKU供应商看板</h1>
+  <h1>供应商打标系统 · 头腰部客户出单SKU供应商</h1>
+  <div class="meta">以供应商维度评估能力：点击「✏️ 打标」维护 等级 / 品类 / 地区 / 联系方式 / 优势标签 ｜ 服务店铺默认收起，点击展开</div>
   <div class="meta" id="meta"></div>
 </header>
 <div class="wrap">
@@ -62,15 +86,24 @@
   <div class="toolbar">
     <div class="f"><label>视图</label>
       <div class="seg" id="viewSeg">
-        <button data-v="store" class="on">按店铺看供应商</button>
-        <button data-v="supplier">按供应商看店铺</button>
+        <button data-v="supplier" class="on">供应商视图（打标）</button>
+        <button data-v="store">店铺视图</button>
       </div>
     </div>
-    <div class="f"><label>分层</label><select id="fTier"></select></div>
-    <div class="f"><label>组别</label><select id="fGroup"></select></div>
-    <div class="f"><label>销售</label><select id="fSales"></select></div>
-    <div class="f"><label>搜索店铺/供应商</label><input type="text" id="fSearch" placeholder="输入关键字…"></div>
+    <div class="f only-sup"><label>品类</label><select id="fCat"></select></div>
+    <div class="f only-sup"><label>打标等级</label><select id="fLevel"></select></div>
+    <div class="f only-store"><label>分层</label><select id="fTier"></select></div>
+    <div class="f only-store"><label>组别</label><select id="fGroup"></select></div>
+    <div class="f only-store"><label>销售</label><select id="fSales"></select></div>
+    <div class="f"><label>搜索</label><input type="text" id="fSearch" placeholder="供应商 / 店铺名…"></div>
     <div class="f"><label>&nbsp;</label><button class="btn" id="reset">重置</button></div>
+    <div class="f"><label>打标数据维护</label>
+      <div style="display:flex;gap:8px;">
+        <button class="btn2" id="expBtn">导出</button>
+        <button class="btn2" id="impBtn">导入</button>
+      </div>
+      <input type="file" id="impFile" accept=".json" style="display:none">
+    </div>
   </div>
   <div id="result"></div>
 </div>
@@ -89,12 +122,13 @@ $("#cards").innerHTML = [
   ["未匹配店铺", meta.unmatchedShops],
 ].map(([l,n])=>`<div class="card"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
 
-$("#note").innerHTML = `说明：「出单SKU」= 区间内马帮订单中出现的库存SKU；「供应商」= 该SKU在马帮的 provider 字段。`
-  + (meta.unmatchedShops>0 ? ` 另有 <b>${meta.unmatchedShops}</b> 个马帮店铺在订单中出现但未匹配到本清单(见底部)。` : ``);
+$("#note").innerHTML = `<b>供应商打标系统</b>：以供应商维度评估能力。每家供应商可点击「✏️ 打标」维护 <b>等级 / 品类 / 地区 / 联系人 / 优势标签 / 备注</b>，数据保存在本机浏览器（刷新不丢失），支持导出/导入 JSON 迁移。数据口径：「出单SKU」= 区间内马帮订单中出现的库存SKU；「供应商」= 该SKU在马帮的 provider 字段。`
+  + (meta.unmatchedShops>0 ? ` 另有 <b>${meta.unmatchedShops}</b> 个马帮店铺在订单中出现但未匹配到本清单(店铺视图底部)。` : ``);
 
-let view = "store";
+let view = "supplier";
 const stores = DATA.stores;
-const fTier=$("#fTier"), fGroup=$("#fGroup"), fSales=$("#fSales"), fSearch=$("#fSearch");
+const fTier=$("#fTier"), fGroup=$("#fGroup"), fSales=$("#fSales"), fSearch=$("#fSearch"),
+      fCat=$("#fCat"), fLevel=$("#fLevel");
 
 function uniq(arr){return [...new Set(arr)].sort();}
 function fillSelect(sel,vals,allLabel){
@@ -108,15 +142,41 @@ $("#viewSeg").addEventListener("click",e=>{
   if(e.target.tagName!=="BUTTON")return;
   view=e.target.dataset.v;
   [...$("#viewSeg").children].forEach(b=>b.classList.toggle("on",b===e.target));
+  updateVis();
   render();
 });
-[fTier,fGroup,fSales].forEach(s=>s.addEventListener("change",render));
+[fTier,fGroup,fSales,fCat,fLevel].forEach(s=>s.addEventListener("change",render));
 fSearch.addEventListener("input",render);
 $("#reset").addEventListener("click",()=>{
-  fTier.value="";fGroup.value="";fSales.value="";fSearch.value="";render();
+  fTier.value="";fGroup.value="";fSales.value="";fCat.value="";fLevel.value="";fSearch.value="";render();
 });
 
 function tierClass(t){ if(t==="头部")return "t1"; if(t==="腰部")return "t2"; return "t3"; }
+
+// ================= 供应商打标系统 =================
+const LS_META="supplier_meta_v1", LS_CAT="supplier_cats_v1";
+let CATS = JSON.parse(localStorage.getItem(LS_CAT)||"null") ||
+  ["饰品/首饰","服饰/服装","美妆个护","包装材料","电子/数码","宠物用品","广告/印刷","家居日用","其他"];
+let META = JSON.parse(localStorage.getItem(LS_META)||"{}");
+function saveAll(){ localStorage.setItem(LS_META,JSON.stringify(META)); localStorage.setItem(LS_CAT,JSON.stringify(CATS)); }
+const LV=[["","未评级"],["A","A · 优质"],["B","B · 稳定"],["C","C · 一般"],["D","D · 待淘汰"]];
+const TAGS=["价格优势","质量稳定","交期快","配合度高","响应快","支持小单","现货库存","设计能力强"];
+const PLACEHOLDER=new Set(["未查到供应商","客户自采","三组不采购"]);
+function lvlRank(l){ return {A:0,B:1,C:2,D:3,"":4}[l||""]; }
+function lvlLabel(l){ return ({A:"A · 优质",B:"B · 稳定",C:"C · 一般",D:"D · 待淘汰"})[l]||"未评级"; }
+function isTagged(m){ return m && (m.tier || (m.cats||[]).length || (m.tags||[]).length || m.contact || m.region); }
+function updateVis(){
+  document.querySelectorAll(".only-store").forEach(el=>el.style.display=view==="store"?"flex":"none");
+  document.querySelectorAll(".only-sup").forEach(el=>el.style.display=view==="supplier"?"flex":"none");
+}
+function fillCatFilter(){
+  const used=new Set(CATS); Object.values(META).forEach(m=>(m.cats||[]).forEach(c=>used.add(c)));
+  const cur=fCat.value;
+  fCat.innerHTML=`<option value="">全部品类</option>`+[...used].sort().map(c=>`<option>${c}</option>`).join("");
+  fCat.value=cur;
+}
+fLevel.innerHTML=`<option value="">全部等级</option>`+LV.slice(1).map(([v,l])=>`<option value="${v}">${l}</option>`).join("");
+fillCatFilter();
 
 function render(){
   const kw=(fSearch.value||"").trim().toLowerCase();
@@ -161,19 +221,149 @@ function renderStore(kw){
 }
 function toggleSup(i){ const el=document.getElementById("sup"+i); el.style.display = el.style.display==="none"?"flex":"none"; }
 
+let lastEntries=[];
 function renderSupplier(kw){
   let entries = Object.entries(DATA.supplierToStores).map(([sup,sts])=>({sup,sts}));
   if(kw) entries = entries.filter(e=> e.sup.toLowerCase().includes(kw) || e.sts.join(" ").toLowerCase().includes(kw));
-  entries.sort((a,b)=>b.sts.length-a.sts.length);
-  if(!entries.length){ $("#result").innerHTML=`<div class="empty">无匹配供应商</div>`; return; }
-  let html = `<table><thead><tr><th>供应商</th><th>服务店铺数</th><th>服务店铺</th></tr></thead><tbody>`;
-  entries.forEach(e=>{
-    html += `<tr><td><b>${e.sup}</b></td><td class="num">${e.sts.length}</td>
-      <td><div class="chips">${e.sts.map(x=>`<span class="chip">${x}</span>`).join("")}</div></td></tr>`;
+  if(fCat.value) entries = entries.filter(e=>((META[e.sup]||{}).cats||[]).includes(fCat.value));
+  if(fLevel.value) entries = entries.filter(e=>((META[e.sup]||{}).tier||"")===fLevel.value);
+  entries.sort((a,b)=>
+    lvlRank((META[a.sup]||{}).tier)-lvlRank((META[b.sup]||{}).tier) ||
+    b.sts.length-a.sts.length || a.sup.localeCompare(b.sup,"zh"));
+  lastEntries=entries;
+  const tagged = entries.filter(e=>isTagged(META[e.sup])).length;
+  let html = `<div class="meta2" style="margin:0 0 10px;">共 <b>${entries.length}</b> 家供应商 ｜ 已打标 <b style="color:var(--brand)">${tagged}</b> 家 ｜ 打标数据保存在本机浏览器，可用「导出/导入」备份迁移</div>`;
+  if(!entries.length){ $("#result").innerHTML=html+`<div class="empty">无匹配供应商</div>`; return; }
+  html += `<table><thead><tr>
+    <th>供应商</th><th>打标等级</th><th>品类</th><th>地区</th><th>联系人 / 方式</th><th>优势标签</th>
+    <th>服务店铺数</th><th>服务店铺</th><th>操作</th></tr></thead><tbody>`;
+  entries.forEach((e,i)=>{
+    const m=META[e.sup]||{};
+    const cats=(m.cats||[]).map(c=>`<span class="chip">${c}</span>`).join("");
+    const tags=(m.tags||[]).map(t=>`<span class="tag2">${t}</span>`).join("");
+    const contact=[m.contact,m.phone,m.wechat].filter(Boolean).join(" / ");
+    const ph=PLACEHOLDER.has(e.sup);
+    html += `<tr${ph?` class="ph"`:""}>
+      <td><b>${e.sup}</b>${ph?`<span class="badge">内部占位</span>`:""}</td>
+      <td>${m.tier?`<span class="lvl ${m.tier}">${lvlLabel(m.tier)}</span>`:`<span class="zero">未评级</span>`}</td>
+      <td>${cats||`<span class="zero">-</span>`}</td>
+      <td>${m.region||`<span class="zero">-</span>`}</td>
+      <td>${contact||`<span class="zero">-</span>`}</td>
+      <td>${tags||`<span class="zero">-</span>`}</td>
+      <td class="num">${e.sts.length}</td>
+      <td><span class="expand" onclick="toggleShops(${i})">▾ 展开 ${e.sts.length} 家</span>
+        <div class="chips" id="sp${i}" style="display:none">${e.sts.map(x=>`<span class="chip">${x}</span>`).join("")}</div></td>
+      <td><button class="mini" onclick="editSupplier(${i})">✏️ 打标</button></td>
+    </tr>`;
   });
   html += `</tbody></table>`;
   $("#result").innerHTML = html;
 }
+function toggleShops(i){
+  const el=document.getElementById("sp"+i);
+  if(!el)return;
+  const open=el.style.display==="none";
+  el.style.display=open?"flex":"none";
+  const t=el.previousElementSibling;
+  if(t)t.textContent = open?`▴ 收起`:`▾ 展开 ${lastEntries[i].sts.length} 家`;
+}
+
+// ================= 打标弹窗 =================
+let curSup=null;
+document.body.insertAdjacentHTML("beforeend",`
+<div class="mask" id="mask" style="display:none">
+ <div class="modal">
+  <h3>✏️ 供应商打标 · <span id="mName"></span></h3>
+  <div class="mrow"><label>打标等级（评估供应商能力）</label>
+    <select id="mTier">${LV.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select></div>
+  <div class="mrow"><label>供应商品类（勾选适用品类，可在下方增删）</label>
+    <div class="chk" id="mCats"></div>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <input type="text" id="mNewCat" placeholder="新增品类，如：硅胶制品…" style="flex:1;min-width:0;">
+      <button class="mini" onclick="addCat()">＋ 添加品类</button>
+    </div>
+    <div class="meta2" style="margin-top:7px;">全部品类（点 × 删除）：<span id="mCatMgr"></span></div></div>
+  <div class="mgrid">
+    <div class="mrow"><label>地区</label><input type="text" id="mRegion" placeholder="如 广东-东莞"></div>
+    <div class="mrow"><label>联系人</label><input type="text" id="mContact" placeholder="姓名"></div>
+    <div class="mrow"><label>电话</label><input type="text" id="mPhone" placeholder="手机号"></div>
+    <div class="mrow"><label>微信</label><input type="text" id="mWechat" placeholder="微信号"></div>
+  </div>
+  <div class="mrow"><label>优势标签</label><div class="chk" id="mTags"></div></div>
+  <div class="mrow"><label>备注</label><textarea id="mNote" rows="2" placeholder="合作情况、账期、特殊情况…"></textarea></div>
+  <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+    <button class="btn2" onclick="closeModal()">取消</button>
+    <button class="btn" onclick="saveSupplier()">保存打标</button>
+  </div>
+ </div>
+</div>`);
+
+function editSupplier(i){
+  curSup=lastEntries[i].sup;
+  const m=META[curSup]||{};
+  $("#mName").textContent=curSup;
+  $("#mTier").value=m.tier||"";
+  $("#mRegion").value=m.region||""; $("#mContact").value=m.contact||"";
+  $("#mPhone").value=m.phone||""; $("#mWechat").value=m.wechat||""; $("#mNote").value=m.note||"";
+  drawCats(m.cats||[]); drawTags(m.tags||[]);
+  $("#mask").style.display="flex";
+}
+function checkedVals(sel){ return [...document.querySelectorAll(sel+" input:checked")].map(x=>x.value); }
+function drawCats(sel){
+  $("#mCats").innerHTML=CATS.map(c=>`<label><input type="checkbox" value="${c}" ${sel.includes(c)?"checked":""}>${c}</label>`).join("");
+  $("#mCatMgr").innerHTML=CATS.map(c=>`<span class="chip">${c}<span class="mdel" onclick="delCat('${c}')">×</span></span>`).join(" ");
+}
+function drawTags(sel){
+  $("#mTags").innerHTML=TAGS.map(t=>`<label><input type="checkbox" value="${t}" ${sel.includes(t)?"checked":""}>${t}</label>`).join("");
+}
+function addCat(){
+  const v=$("#mNewCat").value.trim();
+  if(v && !CATS.includes(v)) CATS.push(v);
+  $("#mNewCat").value="";
+  drawCats(checkedVals("#mCats")); fillCatFilter(); saveAll();
+}
+function delCat(c){
+  CATS=CATS.filter(x=>x!==c);
+  drawCats(checkedVals("#mCats").filter(x=>x!==c)); fillCatFilter(); saveAll();
+}
+function closeModal(){ $("#mask").style.display="none"; curSup=null; }
+function saveSupplier(){
+  if(!curSup)return;
+  META[curSup]={
+    tier:$("#mTier").value,
+    cats:checkedVals("#mCats"),
+    region:$("#mRegion").value.trim(), contact:$("#mContact").value.trim(),
+    phone:$("#mPhone").value.trim(), wechat:$("#mWechat").value.trim(),
+    tags:checkedVals("#mTags"), note:$("#mNote").value.trim()
+  };
+  saveAll(); closeModal(); render();
+}
+$("#mask").addEventListener("click",e=>{ if(e.target.id==="mask")closeModal(); });
+
+// ================= 导出 / 导入 =================
+$("#expBtn").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify({meta:META,categories:CATS,exportedAt:new Date().toISOString()},null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="supplier-tags-"+new Date().toISOString().slice(0,10)+".json";
+  a.click();
+});
+$("#impBtn").addEventListener("click",()=>$("#impFile").click());
+$("#impFile").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(d.meta) META={...META,...d.meta};
+      if(Array.isArray(d.categories)) CATS=[...new Set([...CATS,...d.categories])];
+      saveAll(); fillCatFilter(); render(); alert("导入成功：打标数据已合并");
+    }catch(err){ alert("文件格式错误，请选择导出的 JSON 文件"); }
+  };
+  r.readAsText(f);
+});
+
+updateVis();
 render();
 </script>
 </body>
