@@ -153,6 +153,51 @@
   .chk input{margin:0;accent-color:#22d3ee;}
   .mdel{color:#fb7185;cursor:pointer;font-weight:800;margin-left:3px;}
   .meta2{font-size:12px;color:var(--sub);}
+
+  /* ===== 模块导航 ===== */
+  .tabs{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;padding:15px 24px 0;position:relative;z-index:2;}
+  .tabs button{background:rgba(8,26,46,.55);border:1px solid var(--line);border-radius:8px;color:#7ea6c8;
+       font-size:13.5px;padding:9px 20px;cursor:pointer;font-family:inherit;font-weight:600;letter-spacing:1px;}
+  .tabs button:hover{color:#bfe9ff;border-color:var(--line2);}
+  .tabs button.on{color:#eafaff;border-color:rgba(34,211,238,.60);
+       background:linear-gradient(180deg,rgba(14,116,190,.42),rgba(8,40,72,.42));
+       box-shadow:0 0 18px rgba(34,211,238,.30),inset 0 0 20px rgba(34,211,238,.12);
+       text-shadow:0 0 12px rgba(34,211,238,.55);}
+  .tabs button i{font-style:normal;opacity:.9;}
+  /* ===== 面板 / 图表 ===== */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:980px){.grid2{grid-template-columns:1fr;}}
+  .panel{position:relative;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;
+       box-shadow:var(--glow),inset 0 0 26px rgba(34,211,238,.04);}
+  .panel::before,.panel::after{content:"";position:absolute;width:12px;height:12px;pointer-events:none;}
+  .panel::before{left:-1px;top:-1px;border-left:2px solid var(--brand2);border-top:2px solid var(--brand2);border-radius:9px 0 0 0;
+       filter:drop-shadow(0 0 5px rgba(34,211,238,.85));}
+  .panel::after{right:-1px;bottom:-1px;border-right:2px solid var(--brand2);border-bottom:2px solid var(--brand2);border-radius:0 0 9px 0;
+       filter:drop-shadow(0 0 5px rgba(34,211,238,.85));}
+  .panel h3{margin:0 0 15px;font-size:13.5px;color:#bfe9ff;letter-spacing:1.2px;font-weight:700;
+       display:flex;align-items:center;gap:9px;}
+  .panel h3::before{content:"";width:3px;height:14px;border-radius:2px;
+       background:linear-gradient(180deg,#22d3ee,#0ea5e9);box-shadow:0 0 10px rgba(34,211,238,.85);}
+  .bars{display:flex;flex-direction:column;gap:9px;}
+  .bar{display:grid;grid-template-columns:118px 1fr 54px;align-items:center;gap:10px;font-size:12.5px;}
+  .bar .bl{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bar .bt{height:9px;background:rgba(34,211,238,.10);border:1px solid rgba(34,211,238,.14);border-radius:5px;overflow:hidden;}
+  .bar .bf{height:100%;border-radius:5px;background:linear-gradient(90deg,#0891b2,#22d3ee);
+       box-shadow:0 0 12px rgba(34,211,238,.55);}
+  .bar .bv{text-align:right;color:#7fdcff;font-weight:700;font-variant-numeric:tabular-nums;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:16px;}
+  .kpi{position:relative;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:15px 18px;
+       box-shadow:var(--glow);}
+  .kpi .kv{font-size:25px;font-weight:800;color:#4fe3ff;text-shadow:0 0 16px rgba(34,211,238,.60);
+       font-variant-numeric:tabular-nums;}
+  .kpi .kl{font-size:12.5px;color:var(--sub);margin-top:5px;letter-spacing:.5px;}
+  .kpi .ks{position:absolute;right:16px;top:16px;font-size:12px;color:#7fdcff;font-weight:700;}
+  .gaps{display:flex;flex-direction:column;gap:10px;}
+  .gap{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:10px 13px;
+       font-size:13px;color:#fcd34d;}
+  .gap b{color:#fde68a;font-size:15px;margin:0 3px;}
+  .chip.supclick{cursor:pointer;}
+  .chip.supclick:hover{border-color:var(--line2);color:#eafaff;box-shadow:0 0 12px rgba(34,211,238,.35);}
 </style>
 </head>
 <body>
@@ -161,24 +206,24 @@
   <div class="meta">以供应商维度评估能力：点击「✏️ 打标」维护 等级 / 品类 / 地区 / 联系方式 / 优势标签 ｜ 服务店铺默认收起，点击展开</div>
   <div class="meta" id="meta"></div>
 </header>
+<nav class="tabs" id="tabs">
+  <button data-v="home" class="on"><i>◉</i> 首页总览</button>
+  <button data-v="supplier"><i>◈</i> 供应商打标</button>
+  <button data-v="region"><i>◎</i> 地区分布</button>
+  <button data-v="store"><i>▤</i> 店铺清单</button>
+</nav>
 <div class="wrap">
   <div class="cards" id="cards"></div>
   <div class="note" id="note"></div>
   <div class="toolbar">
-    <div class="f"><label>视图</label>
-      <div class="seg" id="viewSeg">
-        <button data-v="supplier" class="on">供应商视图（打标）</button>
-        <button data-v="store">店铺视图</button>
-      </div>
-    </div>
-    <div class="f only-sup"><label>品类</label><select id="fCat"></select></div>
-    <div class="f only-sup"><label>打标等级</label><select id="fLevel"></select></div>
-    <div class="f only-store"><label>分层</label><select id="fTier"></select></div>
-    <div class="f only-store"><label>组别</label><select id="fGroup"></select></div>
-    <div class="f only-store"><label>销售</label><select id="fSales"></select></div>
-    <div class="f"><label>搜索</label><input type="text" id="fSearch" placeholder="供应商 / 店铺名…"></div>
-    <div class="f"><label>&nbsp;</label><button class="btn" id="reset">重置</button></div>
-    <div class="f"><label>打标数据维护</label>
+    <div class="f" data-mod="supplier region"><label>品类</label><select id="fCat"></select></div>
+    <div class="f" data-mod="supplier region"><label>打标等级</label><select id="fLevel"></select></div>
+    <div class="f" data-mod="store"><label>分层</label><select id="fTier"></select></div>
+    <div class="f" data-mod="store"><label>组别</label><select id="fGroup"></select></div>
+    <div class="f" data-mod="store"><label>销售</label><select id="fSales"></select></div>
+    <div class="f" data-mod="supplier region store"><label>搜索</label><input type="text" id="fSearch" placeholder="供应商 / 地区 / 店铺名…"></div>
+    <div class="f" data-mod="supplier region store"><label>&nbsp;</label><button class="btn" id="reset">重置</button></div>
+    <div class="f" data-mod="supplier region"><label>打标数据维护</label>
       <div style="display:flex;gap:8px;">
         <button class="btn2" id="expBtn">导出</button>
         <button class="btn2" id="impBtn">导入</button>
@@ -207,7 +252,7 @@ $("#cards").innerHTML = [
 $("#note").innerHTML = `<b>供应商打标系统</b>：以供应商维度评估能力。每家供应商可点击「✏️ 打标」维护 <b>等级 / 品类 / 地区 / 联系人 / 优势标签 / 备注</b>，数据保存在本机浏览器（刷新不丢失），支持导出/导入 JSON 迁移。数据口径：「出单SKU」= 区间内马帮订单中出现的库存SKU；「供应商」= 该SKU在马帮的 provider 字段。`
   + (meta.unmatchedShops>0 ? ` 另有 <b>${meta.unmatchedShops}</b> 个马帮店铺在订单中出现但未匹配到本清单(店铺视图底部)。` : ``);
 
-let view = "supplier";
+let view = "home";
 const stores = DATA.stores;
 const fTier=$("#fTier"), fGroup=$("#fGroup"), fSales=$("#fSales"), fSearch=$("#fSearch"),
       fCat=$("#fCat"), fLevel=$("#fLevel");
@@ -220,12 +265,14 @@ fillSelect(fTier, uniq(stores.map(s=>s.tier)), "全部分层");
 fillSelect(fGroup, uniq(stores.map(s=>s.group)), "全部组别");
 fillSelect(fSales, uniq(stores.map(s=>s.sales)), "全部销售");
 
-$("#viewSeg").addEventListener("click",e=>{
-  if(e.target.tagName!=="BUTTON")return;
-  view=e.target.dataset.v;
-  [...$("#viewSeg").children].forEach(b=>b.classList.toggle("on",b===e.target));
+$("#tabs").addEventListener("click",e=>{
+  const btn=e.target.closest("button[data-v]");
+  if(!btn)return;
+  view=btn.dataset.v;
+  [...$("#tabs").children].forEach(b=>b.classList.toggle("on",b===btn));
   updateVis();
   render();
+  window.scrollTo({top:0,behavior:"smooth"});
 });
 [fTier,fGroup,fSales,fCat,fLevel].forEach(s=>s.addEventListener("change",render));
 fSearch.addEventListener("input",render);
@@ -269,8 +316,13 @@ function lvlRank(l){ return {A:0,B:1,C:2,D:3,"":4}[l||""]; }
 function lvlLabel(l){ return ({A:"A · 优质",B:"B · 稳定",C:"C · 一般",D:"D · 待淘汰"})[l]||"未评级"; }
 function isTagged(m){ return m && (m.tier || (m.cats||[]).length || (m.tags||[]).length || m.contact || m.region); }
 function updateVis(){
-  document.querySelectorAll(".only-store").forEach(el=>el.style.display=view==="store"?"flex":"none");
-  document.querySelectorAll(".only-sup").forEach(el=>el.style.display=view==="supplier"?"flex":"none");
+  document.querySelectorAll(".toolbar .f").forEach(el=>{
+    const mods=(el.dataset.mod||"").split(/\s+/).filter(Boolean);
+    el.style.display = mods.includes(view) ? "flex" : "none";
+  });
+  $(".toolbar").style.display = (view==="home") ? "none" : "flex";
+  $("#cards").style.display  = (view==="home") ? "grid" : "none";
+  $("#note").style.display   = (view==="home") ? "none" : "";
 }
 function fillCatFilter(){
   const used=new Set(CATS); Object.values(META).forEach(m=>(m.cats||[]).forEach(c=>used.add(c)));
@@ -283,7 +335,134 @@ fillCatFilter();
 
 function render(){
   const kw=(fSearch.value||"").trim().toLowerCase();
-  if(view==="store") renderStore(kw); else renderSupplier(kw);
+  if(view==="home") return renderHome();
+  if(view==="region") return renderRegion(kw);
+  if(view==="store") return renderStore(kw);
+  return renderSupplier(kw);
+}
+
+const escAttr = s => String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+function barList(items){
+  if(!items.length) return `<div class="empty">暂无数据</div>`;
+  const max = Math.max(1, ...items.map(i=>i[1]));
+  return `<div class="bars">` + items.map(([k,v])=>
+      `<div class="bar"><div class="bl" title="${escAttr(k)}">${k}</div>
+        <div class="bt"><div class="bf" style="width:${(v/max*100).toFixed(1)}%"></div></div>
+        <div class="bv">${v}</div></div>`).join("") + `</div>`;
+}
+
+// ================= 首页总览 =================
+function renderHome(){
+  const reps={}, provs={}, cats={}, lv={A:0,B:0,C:0,D:0,"":0};
+  let tagged=0, rated=0, noRegion=0, noCat=0;
+  const all = Object.entries(DATA.supplierToStores);
+  all.forEach(([sup])=>{
+    const m = META[sup]||{};
+    const reg = (m.region||"").trim();
+    if(reg){ reps[reg]=(reps[reg]||0)+1; const p=reg.split("·")[0]; provs[p]=(provs[p]||0)+1; }
+    else noRegion++;
+    const cs = m.cats||[];
+    if(cs.length) cs.forEach(c=>cats[c]=(cats[c]||0)+1); else noCat++;
+    lv[m.tier||""]++;
+    if(isTagged(m)) tagged++;
+    if(m.tier) rated++;
+  });
+  const total = all.length;
+  const topReps = Object.entries(reps).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const topProvs = Object.entries(provs).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const catList = Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  const lvItems = [["A · 优质",lv.A],["B · 稳定",lv.B],["C · 一般",lv.C],["D · 待淘汰",lv.D],["未评级",lv[""]]];
+  const tierCnt={}; stores.forEach(s=>{ const k=s.tier||"其他"; tierCnt[k]=(tierCnt[k]||0)+1; });
+  const tierItems = Object.entries(tierCnt).sort((a,b)=>b[1]-a[1]);
+  const pct = n => total ? (n/total*100).toFixed(1)+"%" : "-";
+
+  $("#result").innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><div class="kv">${total}</div><div class="kl">供应商总数</div></div>
+    <div class="kpi"><div class="kv">${Object.keys(reps).length}</div><div class="kl">已标注地区数</div></div>
+    <div class="kpi"><div class="kv">${catList.length}</div><div class="kl">覆盖品类数</div></div>
+    <div class="kpi"><div class="ks">${pct(rated)}</div><div class="kv">${rated}</div><div class="kl">已完成评级</div></div>
+    <div class="kpi"><div class="ks">${pct(tagged)}</div><div class="kv">${tagged}</div><div class="kl">已打标供应商</div></div>
+  </div>
+  <div class="grid2">
+    <div class="panel"><h3>地区分布 TOP 12（按商家数）</h3>${barList(topReps)}</div>
+    <div class="panel"><h3>品类分布（供应商数）</h3>${barList(catList)}</div>
+  </div>
+  <div class="grid2" style="margin-top:16px;">
+    <div class="panel"><h3>打标等级分布</h3>${barList(lvItems)}</div>
+    <div class="panel"><h3>省份分布 TOP 12</h3>${barList(topProvs)}</div>
+  </div>
+  <div class="grid2" style="margin-top:16px;">
+    <div class="panel"><h3>店铺分层</h3>${barList(tierItems)}</div>
+    <div class="panel"><h3>数据缺口（建议优先补齐）</h3>
+      <div class="gaps">
+        <div class="gap"><b>${noRegion}</b> 家供应商未标注<b>地区</b></div>
+        <div class="gap"><b>${noCat}</b> 家供应商未标注<b>品类</b></div>
+        <div class="gap"><b>${lv[""]}</b> 家供应商未<b>评级</b></div>
+      </div>
+      <div class="meta2" style="margin-top:11px;">去「供应商打标」逐家维护，或用工具栏「🔄 回填」按 SKU 中文名 / 供应商名 自动补一轮。</div>
+    </div>
+  </div>`;
+}
+
+// ================= 地区分布 =================
+let lastRegions=[];
+function renderRegion(kw){
+  const rep={}; let cnt=0;
+  for(const [sup, sts] of Object.entries(DATA.supplierToStores)){
+    const m = META[sup]||{};
+    const reg = (m.region||"").trim() || "未标注地区";
+    if(kw && !reg.toLowerCase().includes(kw) && !sup.toLowerCase().includes(kw)) continue;
+    if(fCat.value && !(m.cats||[]).includes(fCat.value)) continue;
+    if(fLevel.value && (m.tier||"")!==fLevel.value) continue;
+    cnt++;
+    const r = rep[reg] || (rep[reg]={region:reg, sups:[], cats:{}, lv:{A:0,B:0,C:0,D:0,"":0}, stores:new Set()});
+    r.sups.push(sup);
+    (m.cats||[]).forEach(c=>r.cats[c]=(r.cats[c]||0)+1);
+    r.lv[m.tier||""]++;
+    (sts||[]).forEach(s=>r.stores.add(s));
+  }
+  const rows = Object.values(rep).sort((a,b)=> b.sups.length-a.sups.length || a.region.localeCompare(b.region,"zh"));
+  lastRegions = rows;
+  const catsAll = new Set(); rows.forEach(r=>Object.keys(r.cats).forEach(c=>catsAll.add(c)));
+  const filt = (fCat.value||fLevel.value||kw);
+  let html = `<div class="meta2" style="margin:0 0 10px;">共 <b>${rows.length}</b> 个地区 ｜ 覆盖 <b>${cnt}</b> 家供应商 ｜ 涉及 <b>${catsAll.size}</b> 个品类${filt?` ｜ <span style="color:#7fdcff">已按筛选过滤</span>`:""}</div>`;
+  if(!rows.length){ $("#result").innerHTML = html + `<div class="empty">无匹配地区</div>`; return; }
+  html += `<table><thead><tr>
+    <th>地区</th><th>商家数</th><th>占比</th><th>等级分布</th><th>分布品类（商家数）</th><th>服务店铺</th><th>明细</th>
+  </tr></thead><tbody>`;
+  rows.forEach((r,i)=>{
+    const cats = Object.entries(r.cats).sort((a,b)=>b[1]-a[1]);
+    const catHtml = cats.length
+      ? cats.map(([c,n])=>`<span class="chip">${c} <b style="color:#eafaff">${n}</b></span>`).join("")
+      : `<span class="zero">未标注</span>`;
+    const lvHtml = ["A","B","C","D"].map(t=> r.lv[t] ? `<span class="lvl ${t}">${t} ${r.lv[t]}</span>` : "").join("")
+      + (r.lv[""] ? `<span class="zero"> 未评 ${r.lv[""]}</span>` : "");
+    const share = cnt ? (r.sups.length/cnt*100) : 0;
+    html += `<tr>
+      <td><b>${r.region}</b></td>
+      <td class="num">${r.sups.length}</td>
+      <td><div class="bar" style="grid-template-columns:1fr 44px;">
+          <div class="bt"><div class="bf" style="width:${share.toFixed(1)}%"></div></div>
+          <div class="bv">${share.toFixed(1)}%</div></div></td>
+      <td>${lvHtml}</td>
+      <td>${catHtml}</td>
+      <td class="num">${r.stores.size}</td>
+      <td><span class="expand" onclick="toggleRegion(${i})">▾ 展开 ${r.sups.length} 家</span>
+        <div class="chips" id="rg${i}" style="display:none;max-height:200px;overflow:auto;">
+          ${r.sups.map(s=>`<span class="chip supclick" data-tag="${escAttr(s)}">${s}</span>`).join("")}
+        </div></td>
+    </tr>`;
+  });
+  html += `</tbody></table><div class="meta2" style="margin-top:9px;">提示：点供应商标签可直接打标（维护品类 / 地区 / 等级）。</div>`;
+  $("#result").innerHTML = html;
+}
+function toggleRegion(i){
+  const el=document.getElementById("rg"+i); if(!el)return;
+  const open = el.style.display==="none";
+  el.style.display = open ? "flex" : "none";
+  const t=el.previousElementSibling;
+  if(t) t.textContent = open ? "▴ 收起" : `▾ 展开 ${lastRegions[i].sups.length} 家`;
 }
 
 function renderStore(kw){
@@ -401,9 +580,10 @@ document.body.insertAdjacentHTML("beforeend",`
  </div>
 </div>`);
 
-function editSupplier(i){
-  curSup=lastEntries[i].sup;
-  const m=META[curSup]||{};
+function editSupplier(i){ openTag(lastEntries[i].sup); }
+function openTag(sup){
+  curSup=sup;
+  const m=META[sup]||{};
   $("#mName").textContent=curSup;
   $("#mTier").value=m.tier||"";
   $("#mRegion").value=m.region||""; $("#mContact").value=m.contact||"";
@@ -442,6 +622,10 @@ function saveSupplier(){
   saveAll(); closeModal(); render();
 }
 $("#mask").addEventListener("click",e=>{ if(e.target.id==="mask")closeModal(); });
+$("#result").addEventListener("click",e=>{
+  const el=e.target.closest("[data-tag]");
+  if(el) openTag(el.dataset.tag);
+});
 
 // ================= 导出 / 导入 =================
 $("#expBtn").addEventListener("click",()=>{
