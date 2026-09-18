@@ -160,16 +160,26 @@ let CATS = JSON.parse(localStorage.getItem(LS_CAT)||"null") ||
   ["饰品/首饰","服饰/服装","美妆个护","包装材料","电子/数码","宠物用品","广告/印刷","家居日用","其他"];
 let META = JSON.parse(localStorage.getItem(LS_META)||"null");
 if(!META || typeof META!=="object") META = {};
-// 首轮回填: 服务端按 SKU中文名/供应商名 预判的 品类+地区, 只填入尚无打标的供应商, 不覆盖手改
-(function seedFromServer(){
+// ---- 首轮回填 + 自愈: 服务端预判的 品类/地区 ----
+// 判定「纯自动回填项」: 只含 cats/region/tier 三个键(即从未在弹窗里保存过)。手改过的(8键)永不被覆盖。
+const isSeedDerived = m => !!m && Object.keys(m).every(k=>["cats","region","tier"].includes(k));
+function applySeed(){
   const s = (DATA.seedMeta && typeof DATA.seedMeta==="object") ? DATA.seedMeta : {};
-  let changed = false;
+  let changed=false, n=0;
   for(const k in s){
     const cur = META[k];
-    if(!cur || !Object.keys(cur).length){ META[k] = JSON.parse(JSON.stringify(s[k])); changed = true; }
+    if(!cur || !Object.keys(cur).length || isSeedDerived(cur)){
+      META[k] = {cats:s[k].cats||[], region:s[k].region||"", tier:(cur&&cur.tier)||""};
+      changed=true; n++;
+    }
   }
-  if(changed) localStorage.setItem(LS_META, JSON.stringify(META));
-})();
+  // 清理: 早期版本回填过、但新版已判定为非供应商(如平台名/占位)的, 清空其自动回填内容
+  for(const k in META){
+    if(isSeedDerived(META[k]) && !(k in s)){ META[k]={cats:[],region:"",tier:(META[k]&&META[k].tier)||""}; changed=true; }
+  }
+  return {changed,n};
+}
+(function(){ if(applySeed().changed) localStorage.setItem(LS_META, JSON.stringify(META)); })();
 function saveAll(){ localStorage.setItem(LS_META,JSON.stringify(META)); localStorage.setItem(LS_CAT,JSON.stringify(CATS)); }
 const LV=[["","未评级"],["A","A · 优质"],["B","B · 稳定"],["C","C · 一般"],["D","D · 待淘汰"]];
 const TAGS=["价格优势","质量稳定","交期快","配合度高","响应快","支持小单","现货库存","设计能力强"];
@@ -376,16 +386,8 @@ $("#impFile").addEventListener("change",e=>{
 });
 // ================= 🔄 重新回填(按 SKU中文名/供应商名 的预判) =================
 $("#reseedBtn").addEventListener("click",()=>{
-  const s=DATA.seedMeta||{};
-  let n=0;
-  for(const k in s){
-    const m=META[k]||{};
-    if(!(m.cats||[]).length && !m.region && !(m.tags||[]).length && !m.tier){
-      META[k]={...m, cats:s[k].cats||[], region:s[k].region||"", tier:m.tier||""};
-      n++;
-    }
-  }
-  if(n){ saveAll(); fillCatFilter(); render(); alert("已回填 "+n+" 家供应商的品类/地区（未覆盖已手动维护的）"); }
+  const r=applySeed();
+  if(r.changed){ saveAll(); fillCatFilter(); render(); alert("已回填/刷新 "+r.n+" 家供应商的品类·地区（不会覆盖你手动维护过的）"); }
   else{ alert("没有需要回填的供应商（都已有品类/地区或已手动维护）"); }
 });
 
