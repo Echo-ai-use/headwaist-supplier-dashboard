@@ -735,9 +735,16 @@ function renderStore(kw){
     (!fSales.value||s.sales===fSales.value) &&
     (!kw || s.store.toLowerCase().includes(kw) || s.suppliers.join(" ").toLowerCase().includes(kw))
   );
-  // ---- 导出数据：店铺清单（遵循当前筛选）----
+  // ---- 导出数据：店铺清单（每个供应商单独一行；店铺字段仅写在该店首行，其余留空=合并单元格效果）----
   const exRows = [["店铺名","分层","组别","销售","出单订单","出单SKU","供应商数","供应商"]];
-  rows.forEach(s=>exRows.push([s.store, s.tier||"", s.group||"", s.sales||"", s.orderCount, s.skuCount, s.supplierCount, s.suppliers.join(" / ")]));
+  rows.forEach(s=>{
+    const sups = (s.suppliers && s.suppliers.length) ? s.suppliers : [""];
+    sups.forEach((sup,idx)=>{
+      exRows.push(idx===0
+        ? [s.store, s.tier||"", s.group||"", s.sales||"", s.orderCount, s.skuCount, s.supplierCount, sup]
+        : ["", "", "", "", "", "", "", sup]);
+    });
+  });
   lastExport = { label:"店铺清单", rows: exRows };
   if(!rows.length){ $("#result").innerHTML=`<div class="empty">无匹配店铺</div>`; return; }
   let html = `<table><thead><tr>
