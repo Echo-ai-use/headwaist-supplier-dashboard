@@ -50,6 +50,10 @@
   header .pgTitle::before{content:"";width:4px;height:18px;border-radius:2px;
        background:linear-gradient(180deg,#22d3ee,#0ea5e9);box-shadow:0 0 12px rgba(34,211,238,.9);}
   header .meta{font-size:12.5px;color:#8fb8d8;opacity:1;letter-spacing:.3px;}
+  header .hright{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  header .exp{border-color:rgba(34,211,238,.55);color:#8beaff;background:rgba(9,42,68,.85);white-space:nowrap;}
+  header .exp:hover{color:#eafaff;border-color:rgba(34,211,238,.95);box-shadow:0 0 16px rgba(34,211,238,.4);}
+  header .exp.done{border-color:rgba(52,211,153,.9);color:#7ff0c4;box-shadow:0 0 16px rgba(52,211,153,.35);}
 
   .wrap{max-width:1400px;margin:0 auto;padding:22px 24px 60px;position:relative;z-index:1;}
 
@@ -285,7 +289,10 @@
 <main class="main">
 <header>
   <div class="pgTitle" id="pgTitle">首页总览</div>
-  <div class="meta" id="meta"></div>
+  <div class="hright">
+    <div class="meta" id="meta"></div>
+    <button class="btn2 exp" id="expPage" title="把当前页面的数据导出为 CSV（Excel/WPS 可直接打开）">⤓ 导出本页</button>
+  </div>
 </header>
 <div class="wrap">
   <div class="cards" id="cards"></div>
@@ -301,8 +308,8 @@
     <div class="f" data-mod="supplier region store"><label>&nbsp;</label><button class="btn" id="reset">重置</button></div>
     <div class="f" data-mod="supplier region"><label>打标数据维护</label>
       <div style="display:flex;gap:8px;">
-        <button class="btn2" id="expBtn">导出</button>
-        <button class="btn2" id="impBtn">导入</button>
+        <button class="btn2" id="expBtn" title="导出打标数据(JSON)用于备份/迁移">备份(JSON)</button>
+        <button class="btn2" id="impBtn" title="导入之前备份的 JSON 打标数据">导入备份</button>
         <button class="btn2" id="reseedBtn">🔄 回填</button>
       </div>
       <input type="file" id="impFile" accept=".json" style="display:none">
@@ -330,6 +337,7 @@ $("#note").innerHTML = `<b>供应商打标系统</b>：以供应商维度评估�
   + ` 店铺分层 = <b>头部 / 腰部</b>（头腰部客户清单）+ <b>尾部</b>（订单中出现但不在清单的店铺，共 <b>${meta.tailStoreCount || 0}</b> 家，已全部并入店铺清单）。`;
 
 let view = "home";
+let lastExport = null;   // 当前页面导出的数据行(每次 render 更新)
 const stores = DATA.stores;
 const fTier=$("#fTier"), fGroup=$("#fGroup"), fSales=$("#fSales"), fSearch=$("#fSearch"),
       fCat=$("#fCat"), fLevel=$("#fLevel"), fRegion=$("#fRegion");
@@ -496,13 +504,35 @@ function renderHome(){
     if(m.tier) rated++;
   });
   const total = all.length;
-  const topReps = Object.entries(reps).sort((a,b)=>b[1]-a[1]).slice(0,12);
-  const topProvs = Object.entries(provs).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const repsSorted = Object.entries(reps).sort((a,b)=>b[1]-a[1]);
+  const provsSorted = Object.entries(provs).sort((a,b)=>b[1]-a[1]);
+  const topReps = repsSorted.slice(0,12);
+  const topProvs = provsSorted.slice(0,12);
   const catList = Object.entries(cats).sort((a,b)=>b[1]-a[1]);
   const lvItems = [["A · 优质",lv.A,"A"],["B · 稳定",lv.B,"B"],["C · 一般",lv.C,"C"],["D · 待淘汰",lv.D,"D"],["未评级",lv[""],"__unrated__"]];
   const tierCnt={}; stores.forEach(s=>{ const k=s.tier||"其他"; tierCnt[k]=(tierCnt[k]||0)+1; });
   const tierItems = Object.entries(tierCnt).sort((a,b)=>b[1]-a[1]);
   const pct = n => total ? (n/total*100).toFixed(1)+"%" : "-";
+
+  // ---- 导出数据（KPI + 各维度全量分布）----
+  const tailCnt = stores.filter(s=>s.tier==="尾部").length;
+  const exRows = [];
+  exRows.push(["供应商打标系统 · 首页总览"]);
+  exRows.push(["数据区间", meta.window]);
+  exRows.push(["生成时间", meta.generatedAt]);
+  exRows.push([]);
+  exRows.push(["核心指标","数量"]);
+  [["供应商总数",total],["已标注地区数",Object.keys(reps).length],["覆盖品类数",catList.length],
+   ["已完成评级",rated],["已打标供应商",tagged],["店铺总数",stores.length],
+   ["· 头部/腰部",stores.length-tailCnt],["· 尾部",tailCnt],
+   ["有出单店铺",meta.storesWithOrders],["出单订单数(头腰部)",meta.totalOrders],["出单SKU数(头腰部)",meta.totalSku]
+  ].forEach(r=>exRows.push(r));
+  exRows.push([]); exRows.push(["地区分布","供应商数"]); repsSorted.forEach(r=>exRows.push(r));
+  exRows.push([]); exRows.push(["省份分布","供应商数"]); provsSorted.forEach(r=>exRows.push(r));
+  exRows.push([]); exRows.push(["品类分布","供应商数"]); catList.forEach(r=>exRows.push(r));
+  exRows.push([]); exRows.push(["打标等级分布","供应商数"]); lvItems.forEach(([l,n])=>exRows.push([l,n]));
+  exRows.push([]); exRows.push(["店铺分层","店铺数"]); tierItems.forEach(r=>exRows.push(r));
+  lastExport = { label:"首页总览", rows: exRows };
 
   $("#result").innerHTML = `
   <div class="kpis">
@@ -552,6 +582,11 @@ function renderCatMap(){
   const rows=Object.values(rep).sort((a,b)=> b.n-a.n || a.region.localeCompare(b.region,"zh"));
   let maxCell=1;
   rows.forEach(r=>cats.forEach(c=>{ if((r.cats[c]||0)>maxCell) maxCell=r.cats[c]; }));
+
+  // ---- 导出数据：地区 × 品类 矩阵（每格=该地区该品类的供应商数）----
+  const exRows = [["地区","商家数", ...cats]];
+  rows.forEach(r=>exRows.push([r.region, r.n, ...cats.map(c=>r.cats[c]||0)]));
+  lastExport = { label:"地区品类矩阵", rows: exRows };
 
   if(!rows.length){ $("#result").innerHTML=`<div class="empty">暂无数据</div>`; return; }
 
@@ -644,6 +679,14 @@ function renderRegion(kw){
   }
   const rows = Object.values(rep).sort((a,b)=> b.sups.length-a.sups.length || a.region.localeCompare(b.region,"zh"));
   lastRegions = rows;
+  // ---- 导出数据：地区分布表（遵循当前筛选）----
+  const exRows = [["地区","商家数","占比","A级","B级","C级","D级","未评级","分布品类","服务店铺数","供应商明细"]];
+  rows.forEach(r=>{
+    const share = cnt ? (r.sups.length/cnt*100).toFixed(1)+"%" : "-";
+    const catsStr = Object.entries(r.cats).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`${c}(${n})`).join(" / ");
+    exRows.push([r.region, r.sups.length, share, r.lv.A, r.lv.B, r.lv.C, r.lv.D, r.lv[""], catsStr, r.stores.size, r.sups.join(" / ")]);
+  });
+  lastExport = { label:"地区分布", rows: exRows };
   const catsAll = new Set(); rows.forEach(r=>Object.keys(r.cats).forEach(c=>catsAll.add(c)));
   const filt = (fCat.value||fLevel.value||kw);
   let html = `<div class="meta2" style="margin:0 0 10px;">共 <b>${rows.length}</b> 个地区 ｜ 覆盖 <b>${cnt}</b> 家供应商 ｜ 涉及 <b>${catsAll.size}</b> 个品类${filt?` ｜ <span style="color:#7fdcff">已按筛选过滤</span>`:""}</div>`;
@@ -692,6 +735,10 @@ function renderStore(kw){
     (!fSales.value||s.sales===fSales.value) &&
     (!kw || s.store.toLowerCase().includes(kw) || s.suppliers.join(" ").toLowerCase().includes(kw))
   );
+  // ---- 导出数据：店铺清单（遵循当前筛选）----
+  const exRows = [["店铺名","分层","组别","销售","出单订单","出单SKU","供应商数","供应商"]];
+  rows.forEach(s=>exRows.push([s.store, s.tier||"", s.group||"", s.sales||"", s.orderCount, s.skuCount, s.supplierCount, s.suppliers.join(" / ")]));
+  lastExport = { label:"店铺清单", rows: exRows };
   if(!rows.length){ $("#result").innerHTML=`<div class="empty">无匹配店铺</div>`; return; }
   let html = `<table><thead><tr>
     <th>店铺名</th><th>分层</th><th>组别</th><th>销售</th>
@@ -733,6 +780,14 @@ function renderSupplier(kw){
     lvlRank((META[a.sup]||{}).tier)-lvlRank((META[b.sup]||{}).tier) ||
     b.sts.length-a.sts.length || a.sup.localeCompare(b.sup,"zh"));
   lastEntries=entries;
+  // ---- 导出数据：供应商打标清单（遵循当前筛选）----
+  const exRows = [["供应商","打标等级","品类","地区","联系人","电话","微信","优势标签","备注","服务店铺数","服务店铺"]];
+  entries.forEach(e=>{
+    const m=META[e.sup]||{};
+    exRows.push([e.sup, m.tier?lvlLabel(m.tier):"未评级", (m.cats||[]).join(" / "), m.region||"",
+      m.contact||"", m.phone||"", m.wechat||"", (m.tags||[]).join(" / "), m.note||"", e.sts.length, e.sts.join(" / ")]);
+  });
+  lastExport = { label:"供应商打标", rows: exRows };
   const tagged = entries.filter(e=>isTagged(META[e.sup])).length;
   let html = `<div class="meta2" style="margin:0 0 10px;">共 <b>${entries.length}</b> 家供应商 ｜ 已打标 <b style="color:var(--brand)">${tagged}</b> 家 ｜ 打标数据保存在本机浏览器，可用「导出/导入」备份迁移</div>`;
   if(!entries.length){ $("#result").innerHTML=html+`<div class="empty">无匹配供应商</div>`; return; }
@@ -866,7 +921,30 @@ $(".wrap").addEventListener("click",e=>{
   if(el) openTag(el.dataset.tag);
 });
 
-// ================= 导出 / 导入 =================
+// ================= 通用导出（CSV） =================
+function csvCell(v){
+  const s = (v===null||v===undefined) ? "" : String(v);
+  return /[",\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function todayStr(){ const d=new Date(), p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+function downloadCSV(name, rows){
+  const csv = "\ufeff" + rows.map(r=>r.map(csvCell).join(",")).join("\r\n");   // \ufeff = BOM，保证 Excel 正确识别中文
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+function exportCurrent(){
+  if(!lastExport || !lastExport.rows || !lastExport.rows.length){ alert("当前页面暂无可导出的数据"); return; }
+  downloadCSV(`供应商打标系统_${lastExport.label}_${todayStr()}.csv`, lastExport.rows);
+  const b=$("#expPage");
+  if(b){ b.classList.add("done"); const t=b.textContent; b.textContent="✓ 已导出"; setTimeout(()=>{ b.classList.remove("done"); b.textContent=t; }, 1600); }
+}
+$("#expPage").addEventListener("click", exportCurrent);
+
+// ================= 导出 / 导入（打标数据备份，JSON） =================
 $("#expBtn").addEventListener("click",()=>{
   const blob=new Blob([JSON.stringify({meta:META,categories:CATS,exportedAt:new Date().toISOString()},null,2)],{type:"application/json"});
   const a=document.createElement("a");
