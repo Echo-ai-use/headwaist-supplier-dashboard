@@ -1297,6 +1297,7 @@ function renderCityMap(prov, provItems){
     const geoCoord={};
     geoJson.features.forEach(f=>{ const pr=f.properties||{}; const c=pr.centroid||pr.center; if(pr.name&&c) geoCoord[pr.name]=c; });
     const mapData=provItems.map(([short,n])=>({name:PROV_FULL[short]||short, value:n}));
+    const valByName={}; mapData.forEach(d=>{ valByName[d.name]=d.value; });
     // 对数色阶：拉平数量级，让小省份也能显出深浅（图例已隐藏，仅用色阶着色）
     const vv=provItems.map(x=>x[1]).filter(v=>v>0).sort((a,b)=>a-b);
     const vmax=vv.length?vv[vv.length-1]:10, vmin=vv.length?Math.max(1,vv[0]):1;
@@ -1318,15 +1319,15 @@ function renderCityMap(prov, provItems){
       tooltip:{trigger:"item", backgroundColor:"rgba(8,22,38,.95)", borderColor:"#1f4f6b", textStyle:{color:"#cfeaff"},
         formatter:p=> p.seriesType==="effectScatter"
           ? `${p.name}<br/>供应商 <b style="color:#22d3ee">${p.value[2]}</b> 家`
-          : `${p.name.replace(/(省|市|自治区|特别行政区)$/,"")}<br/>供应商 <b style="color:#22d3ee">${p.value||0}</b> 家`},
+          : `${(p.name||"").replace(/(省|市|自治区|特别行政区)$/,"")}<br/>供应商 <b style="color:#22d3ee">${valByName[p.name]||0}</b> 家`},
       visualMap:{ show:false, type:"piecewise", seriesIndex:0, pieces },
-      geo:{ map:"china", roam:true, zoom:1.15, center:[104,36], silent:true,
+      // 注意：series map 通过 geoIndex:0 委托 geo 组件渲染区域 —— geo 不能 silent:true，否则点击事件全部失效
+      geo:{ map:"china", roam:true, zoom:1.15, center:[104,36],
         itemStyle:{areaColor:"#0a1a2b", borderColor:"#1f4f6b", borderWidth:.8},
-        emphasis:{disabled:true} },
+        emphasis:{label:{show:true,color:"#eafaff"},itemStyle:{areaColor:"#1b9bb8"}} },
       series:[
         { name:"供应商数", type:"map", map:"china", geoIndex:0,
-          label:{show:false}, itemStyle:{areaColor:"#0a1a2b"},
-          emphasis:{label:{show:true,color:"#eafaff"},itemStyle:{areaColor:"#1b9bb8"}}, data:mapData },
+          label:{show:false}, itemStyle:{areaColor:"#0a1a2b"}, data:mapData },
         { name:"供应商", type:"effectScatter", coordinateSystem:"geo", zlevel:2,
           data:bubbles, symbolSize:v=>Math.max(6, Math.sqrt(v[2])*2.4),
           rippleEffect:{scale:3, brushType:"stroke"}, showEffectOn:"render",
