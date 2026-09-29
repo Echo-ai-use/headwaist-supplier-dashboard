@@ -1205,7 +1205,17 @@ function renderCityMap(prov, provItems){
     const geoCoord={};
     geoJson.features.forEach(f=>{ const pr=f.properties||{}; const c=pr.centroid||pr.center; if(pr.name&&c) geoCoord[pr.name]=c; });
     const mapData=provItems.map(([short,n])=>({name:PROV_FULL[short]||short, value:n}));
-    const maxV=provItems.length?provItems[0][1]:1;
+    // 对数色阶：拉平数量级，让小省份也能显出深浅（图例已隐藏，仅用色阶着色）
+    const vv=provItems.map(x=>x[1]).filter(v=>v>0).sort((a,b)=>a-b);
+    const vmax=vv.length?vv[vv.length-1]:10, vmin=vv.length?Math.max(1,vv[0]):1;
+    const lo=Math.log10(vmin), hi=Math.log10(Math.max(vmax, vmin*10));
+    const bs=[1,2,3,4].map(i=>Math.pow(10, lo+(hi-lo)*i/5));
+    const CC=["#7af0e6","#3fd0e2","#22a7c6","#16799b","#0f4f6e"];
+    const pieces=[
+      { gt:bs[3], color:CC[0] }, { gt:bs[2], lte:bs[3], color:CC[1] },
+      { gt:bs[1], lte:bs[2], color:CC[2] }, { gt:bs[0], lte:bs[1], color:CC[3] },
+      { gt:0, lte:bs[0], color:CC[4] }
+    ];
     const bubbles=provItems.map(([short,n])=>{
       const full=PROV_FULL[short]||short;
       const c=geoCoord[full]||PROV_COORD[short];
@@ -1217,15 +1227,13 @@ function renderCityMap(prov, provItems){
         formatter:p=> p.seriesType==="effectScatter"
           ? `${p.name}<br/>供应商 <b style="color:#22d3ee">${p.value[2]}</b> 家`
           : `${p.name.replace(/(省|市|自治区|特别行政区)$/,"")}<br/>供应商 <b style="color:#22d3ee">${p.value||0}</b> 家`},
-      visualMap:{ seriesIndex:0, min:0, max:maxV, left:14, bottom:14, calculable:true,
-        text:["多","少"], textStyle:{color:"#8fb8d8"},
-        inRange:{color:["#0e2236","#0d3b54","#11708f","#1fbfd6","#7af0e6"]} },
+      visualMap:{ show:false, type:"piecewise", seriesIndex:0, pieces },
       geo:{ map:"china", roam:true, zoom:1.15, center:[104,36], silent:true,
-        itemStyle:{areaColor:"#0c1c2e", borderColor:"#1f4f6b", borderWidth:.8},
+        itemStyle:{areaColor:"#0a1a2b", borderColor:"#1f4f6b", borderWidth:.8},
         emphasis:{disabled:true} },
       series:[
         { name:"供应商数", type:"map", map:"china", geoIndex:0,
-          label:{show:false}, itemStyle:{areaColor:"#0e2236"},
+          label:{show:false}, itemStyle:{areaColor:"#0a1a2b"},
           emphasis:{label:{show:true,color:"#eafaff"},itemStyle:{areaColor:"#1b9bb8"}}, data:mapData },
         { name:"供应商", type:"effectScatter", coordinateSystem:"geo", zlevel:2,
           data:bubbles, symbolSize:v=>Math.max(6, Math.sqrt(v[2])*2.4),
