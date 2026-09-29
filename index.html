@@ -291,6 +291,7 @@
   <nav class="tabs" id="tabs">
     <button data-v="home" class="on"><span class="ico">◉</span><span class="tx"><b>首页总览</b><em>全局数据与打标进度</em></span></button>
     <button data-v="supplier"><span class="ico">◈</span><span class="tx"><b>供应商打标</b><em>维护等级 / 品类 / 地区</em></span></button>
+    <button data-v="purch"><span class="ico">▩</span><span class="tx"><b>采购分析</b><em>供应商服务店铺与订单量</em></span></button>
     <button data-v="region"><span class="ico">◎</span><span class="tx"><b>地区分布</b><em>各地区商家数与品类构成</em></span></button>
     <button data-v="city"><span class="ico">◍</span><span class="tx"><b>城市分布</b><em>供应商城市地理分布</em></span></button>
     <button data-v="catmap"><span class="ico">▦</span><span class="tx"><b>地区品类</b><em>各地区主力品类与分布矩阵</em></span></button>
@@ -400,6 +401,7 @@ $("#note").innerHTML = `<b>供应商打标系统</b>：以供应商维度评估�
 let view = "home";
 let lastExport = null;   // 当前页面导出的数据行(每次 render 更新)
 const stores = DATA.stores;
+const storeByName = Object.fromEntries(stores.map(s=>[s.store,s]));
 const fTier=$("#fTier"), fGroup=$("#fGroup"), fSales=$("#fSales"), fSearch=$("#fSearch"),
       fCat=$("#fCat"), fLevel=$("#fLevel"), fRegion=$("#fRegion");
 
@@ -416,7 +418,7 @@ fillSelect(fTier,
 fillSelect(fGroup, uniq(stores.map(s=>s.group)), "全部组别");
 fillSelect(fSales, uniq(stores.map(s=>s.sales)), "全部销售");
 
-const PAGE_TITLE={home:"首页总览",supplier:"供应商打标",region:"地区分布",city:"城市分布",catmap:"地区品类",store:"店铺清单"};
+const PAGE_TITLE={home:"首页总览",supplier:"供应商打标",purch:"采购分析",region:"地区分布",city:"城市分布",catmap:"地区品类",store:"店铺清单"};
 function gotoView(v){
   view=v;
   [...$("#tabs").children].forEach(b=>b.classList.toggle("on", b.dataset.v===v));
@@ -501,7 +503,7 @@ function updateVis(){
     const mods=(el.dataset.mod||"").split(/\s+/).filter(Boolean);
     el.style.display = mods.includes(view) ? "flex" : "none";
   });
-  const noToolbar = (view==="home" || view==="catmap" || view==="city");
+  const noToolbar = (view==="home" || view==="catmap" || view==="city" || view==="purch");
   $(".toolbar").style.display = noToolbar ? "none" : "flex";
   $("#cards").style.display  = (view==="home") ? "grid" : "none";
   $("#note").style.display   = (view==="home") ? "none" : "";
@@ -531,6 +533,7 @@ function render(){
   if(view==="home") return renderHome();
   if(view==="catmap") return renderCatMap();
   if(view==="city") return renderCity();
+  if(view==="purch") return renderPurch();
   if(view==="region") return renderRegion(kw);
   if(view==="store") return renderStore(kw);
   return renderSupplier(kw);
@@ -741,12 +744,17 @@ function renderRegion(kw){
   }
   const rows = Object.values(rep).sort((a,b)=> b.sups.length-a.sups.length || a.region.localeCompare(b.region,"zh"));
   lastRegions = rows;
-  // ---- 导出数据：地区分布表（遵循当前筛选）----
-  const exRows = [["地区","商家数","占比","A级","B级","C级","D级","未评级","分布品类","服务店铺数","供应商明细"]];
+  // ---- 导出数据：地区分布（供应商「一个一行」展开；地区级字段仅写首行；每行附该供应商品类）----
+  const exRows = [["地区","商家数","占比","A级","B级","C级","D级","未评级","分布品类","服务店铺数","供应商","供应商品类"]];
   rows.forEach(r=>{
     const share = cnt ? (r.sups.length/cnt*100).toFixed(1)+"%" : "-";
     const catsStr = Object.entries(r.cats).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`${c}(${n})`).join(" / ");
-    exRows.push([r.region, r.sups.length, share, r.lv.A, r.lv.B, r.lv.C, r.lv.D, r.lv[""], catsStr, r.stores.size, r.sups.join(" / ")]);
+    const head=[r.region, r.sups.length, share, r.lv.A, r.lv.B, r.lv.C, r.lv.D, r.lv[""], catsStr, r.stores.size];
+    const sups=(r.sups && r.sups.length)?r.sups:[""];
+    sups.forEach((s,i)=>{
+      const scats=((META[s]||{}).cats||[]).join(" / ");
+      exRows.push(i===0 ? [...head, s, scats] : ["","","","","","","","","","", s, scats]);
+    });
   });
   lastExport = { label:"地区分布", rows: exRows };
   const catsAll = new Set(); rows.forEach(r=>Object.keys(r.cats).forEach(c=>catsAll.add(c)));
@@ -849,12 +857,14 @@ function renderSupplier(kw){
     lvlRank((META[a.sup]||{}).tier)-lvlRank((META[b.sup]||{}).tier) ||
     b.sts.length-a.sts.length || a.sup.localeCompare(b.sup,"zh"));
   lastEntries=entries;
-  // ---- 导出数据：供应商打标清单（遵循当前筛选）----
+  // ---- 导出数据：供应商打标清单（遵循当前筛选；服务店铺「一个一行」展开，父级字段仅写首行）----
   const exRows = [["供应商","打标等级","品类","地区","联系人","电话","微信","优势标签","备注","服务店铺数","服务店铺"]];
   entries.forEach(e=>{
     const m=META[e.sup]||{};
-    exRows.push([e.sup, m.tier?lvlLabel(m.tier):"未评级", (m.cats||[]).join(" / "), m.region||"",
-      m.contact||"", m.phone||"", m.wechat||"", (m.tags||[]).join(" / "), m.note||"", e.sts.length, e.sts.join(" / ")]);
+    const head=[e.sup, m.tier?lvlLabel(m.tier):"未评级", (m.cats||[]).join(" / "), m.region||"",
+      m.contact||"", m.phone||"", m.wechat||"", (m.tags||[]).join(" / "), m.note||"", e.sts.length];
+    const sts=(e.sts && e.sts.length)?e.sts:[""];
+    sts.forEach((sn,i)=>{ exRows.push(i===0 ? [...head, sn] : ["","","","","","","","","","", sn]); });
   });
   lastExport = { label:"供应商打标", rows: exRows };
   const tagged = entries.filter(e=>isTagged(META[e.sup])).length;
@@ -980,6 +990,7 @@ function handleAct(act,val,reg){
   else if(act==="level"){ fLevel.value=val; gotoView("supplier"); }
   else if(act==="prov"){ fSearch.value=val; gotoView("region"); }
   else if(act==="tier"){ fTier.value=val; gotoView("store"); }
+  else if(act==="sup"){ fSearch.value=val; gotoView("supplier"); }
   else return;
   window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -1045,6 +1056,87 @@ $("#reseedBtn").addEventListener("click",()=>{
   if(r.changed){ saveAll(); fillCatFilter(); fillRegionFilter(); render(); alert("已回填/刷新 "+r.n+" 家供应商的品类·地区（不会覆盖你手动维护过的）"); }
   else{ alert("没有需要回填的供应商（都已有品类/地区或已手动维护）"); }
 });
+
+// ================= 采购分析（功能2：供应商维度服务店铺 / 订单量 / SKU） =================
+let purchSort="orders";
+function supBars(items){
+  if(!items.length) return `<div class="empty">暂无数据</div>`;
+  const max=Math.max(1,...items.map(x=>x[1]));
+  return `<div class="bars">`+items.map(([k,v])=>`<div class="bar ck" data-act="sup" data-val="${escAttr(k)}" title="查看该供应商">
+    <div class="bl" title="${escAttr(k)}">${escHtml(k)}</div>
+    <div class="bt"><div class="bf" style="width:${(v/max*100).toFixed(1)}%"></div></div>
+    <div class="bv">${v}</div></div>`).join("")+`</div>`;
+}
+function renderPurch(){
+  const list = Object.entries(DATA.supplierToStores).map(([sup,sts])=>{
+    const m=META[sup]||{};
+    let orders=0, skus=0;
+    (sts||[]).forEach(sn=>{ const s=storeByName[sn]; if(s){ orders+=(s.orderCount||0); skus+=(s.skuCount||0); } });
+    return {sup, nStore:(sts||[]).length, orders, skus, tier:m.tier||"", cats:m.cats||[], region:m.region||""};
+  });
+  const total=list.length;
+  const multi=list.filter(x=>x.nStore>=2).length;
+  const avgStore = total ? (list.reduce((s,x)=>s+x.nStore,0)/total) : 0;
+  const byOrders=[...list].sort((a,b)=>b.orders-a.orders || a.sup.localeCompare(b.sup,"zh"));
+  const byStores=[...list].sort((a,b)=>b.nStore-a.nStore || b.orders-a.orders);
+  const bySkus  =[...list].sort((a,b)=>b.skus-a.skus || a.sup.localeCompare(b.sup,"zh"));
+  const byName  =[...list].sort((a,b)=>a.sup.localeCompare(b.sup,"zh"));
+  const top1=byOrders[0];
+  const sorted = purchSort==="stores"?byStores : purchSort==="skus"?bySkus : purchSort==="name"?byName : byOrders;
+  const show = sorted.slice(0,80);
+
+  // ---- 导出（全量，按当前排序）----
+  const exRows=[["供应商打标系统 · 供应商采购分析"]];
+  exRows.push(["数据区间", meta.window]);
+  exRows.push([]);
+  exRows.push(["指标","数值"]);
+  [["供应商总数",total],["服务店铺≥2家(核心供应商)",multi],["平均每家服务店铺数",avgStore.toFixed(2)],
+   ["关联订单量最大供应商", top1?`${top1.sup}（${top1.orders} 单 / ${top1.nStore} 店）`:""]].forEach(r=>exRows.push(r));
+  exRows.push([]);
+  exRows.push(["供应商","打标等级","品类","地区","服务店铺数","关联订单量","关联SKU数","均单/店"]);
+  sorted.forEach(x=>exRows.push([x.sup, x.tier?lvlLabel(x.tier):"未评级", x.cats.join(" / "), x.region,
+    x.nStore, x.orders, x.skus, x.nStore?(x.orders/x.nStore).toFixed(1):""]));
+  lastExport={label:"供应商采购分析", rows:exRows};
+
+  $("#result").innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><div class="kv">${total}</div><div class="kl">供应商总数</div></div>
+    <div class="kpi"><div class="kv">${multi}</div><div class="kl">服务店铺 ≥2 家（核心）</div></div>
+    <div class="kpi"><div class="kv">${avgStore.toFixed(2)}</div><div class="kl">平均服务店铺数</div></div>
+    <div class="kpi"><div class="kv" style="font-size:15px;line-height:1.35">${top1?escHtml(top1.sup):"-"}</div><div class="kl">关联订单量最大（${top1?top1.orders:0} 单）</div></div>
+  </div>
+  <div class="meta2" style="margin:-4px 0 12px;">口径：某供应商的「关联订单量 / SKU 数」= 它服务的所有店铺的订单量 / 出单SKU 之和（店铺级近似，非该供应商独占）。采购额需马帮采购价数据，暂缺。</div>
+  <div class="grid2">
+    <div class="panel"><h3>关联订单量 TOP 15（点供应商跳详情）</h3>${supBars(byOrders.slice(0,15).map(x=>[x.sup,x.orders]))}</div>
+    <div class="panel"><h3>服务店铺数 TOP 15</h3>${supBars(byStores.slice(0,15).map(x=>[x.sup,x.nStore]))}</div>
+  </div>
+  <div class="panel" style="margin-top:16px;"><h3>供应商排名
+    <select id="purchSort" style="float:right;margin-top:-3px;">
+      <option value="orders"${purchSort==="orders"?" selected":""}>按关联订单量</option>
+      <option value="stores"${purchSort==="stores"?" selected":""}>按服务店铺数</option>
+      <option value="skus"${purchSort==="skus"?" selected":""}>按关联SKU数</option>
+      <option value="name"${purchSort==="name"?" selected":""}>按名称</option>
+    </select></h3>
+    <div class="meta2" style="margin:0 0 8px;">显示前 ${show.length} 家 / 共 ${total} 家（导出为全量）。点供应商名 → 跳到「供应商打标」查看/维护。</div>
+    <table><thead><tr>
+      <th>#</th><th>供应商</th><th>等级</th><th>品类</th><th>地区</th><th>服务店铺数</th><th>关联订单量</th><th>关联SKU数</th><th>均单/店</th>
+    </tr></thead><tbody>
+    ${show.map((x,i)=>`<tr>
+      <td class="num">${i+1}</td>
+      <td><b class="lnk" data-act="sup" data-val="${escAttr(x.sup)}" title="查看该供应商">${escHtml(x.sup)}</b></td>
+      <td>${x.tier?`<span class="lvl ${x.tier}">${lvlLabel(x.tier)}</span>`:`<span class="zero">未评级</span>`}</td>
+      <td>${x.cats.map(c=>`<span class="chip">${escHtml(c)}</span>`).join("")||`<span class="zero">-</span>`}</td>
+      <td>${x.region||`<span class="zero">-</span>`}</td>
+      <td class="num">${x.nStore}</td>
+      <td class="num"><b style="color:var(--brand)">${x.orders}</b></td>
+      <td class="num">${x.skus}</td>
+      <td class="num">${x.nStore?(x.orders/x.nStore).toFixed(1):"-"}</td>
+    </tr>`).join("")}
+    </tbody></table>
+  </div>`;
+  const ps=$("#purchSort");
+  if(ps) ps.addEventListener("change",()=>{ purchSort=ps.value; renderPurch(); });
+}
 
 // ================= 城市分布（地理可视化） =================
 // 省份简称 -> GeoJSON 全称（DataV 100000_full 的 properties.name）
